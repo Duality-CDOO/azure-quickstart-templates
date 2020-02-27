@@ -159,7 +159,28 @@ A valid metadata.json must adhere to the following structure
 
 ## Cloud Support
 
-If the sample does not support all clouds add the environments property to metadata.json indicating the clouds that are supported.
+If the sample does not support all clouds add the environments property to metadata.json indicating the clouds that are supported.  If omitted, the following is the default value of the environments property.
+
+```json
+{
+  ...
+  "environments": [
+    "AzureCloud",
+    "AzureUSGovernment"
+  ]
+}
+```
+
+### Cloud Specific Parameter Files
+
+If the sample needs separate parameter files for each cloud you can add each to the sample:
+
+| Cloud       | Parameter Filename |
+|:---------------------------------------- |:---------------------------------------- |
+| Azure Public Cloud  | azuredeploy.parameters.json |  
+| Azure US Government Cloud | azuredeploy.parameters.us.json |  
+
+If only one is provided it will be used for testing in all clouds.
 
 ## Azure DevOps CI
 
@@ -188,6 +209,7 @@ Quickstart CI engine provides few pre-created azure components which can be used
 + **GEN-KEYVAULT-RESOURCEGROUP-NAME** - the name of the resource group for the keyvault
 + **GEN-KEYVAULT-FQDN-URI** - the FQDN URI of the keyvault
 + **GEN-KEYVAULT-RESOURCE-ID** - the resource ID of the keyvault
++ **GEN-KEYVAULT-PASSWORD-SECRET-NAME** - the secret name for a password reference
 + **GEN-KEYVAULT-PASSWORD-REFERENCE** - the reference parameter used to retrieve a KeyVault Secret (use "reference" for the property name, not "value")
 + **GEN-KEYVAULT-SSL-SECRET-NAME** - the name of the secret where the sample SSL cert is stored in the keyvault
 + **GEN-KEYVAULT-SSL-SECRET-URI** - the URI of the sample SSL cert stored in the test keyvault

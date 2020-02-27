@@ -30,7 +30,8 @@ $ctx = New-AzStorageContext -StorageAccountName $StorageAccountName -StorageAcco
 
 if ($BuildReason -eq "PullRequest") {
     $t = $TableNamePRs
-}else{
+}
+else {
     $t = $TableName
 }
 
@@ -50,7 +51,7 @@ $PartitionKey = $Metadata.Type # if the type changes we'll have an orphaned row,
 $r = Get-AzTableRow -table $cloudTable -PartitionKey $PartitionKey -RowKey $RowKey
 
 # if the build was cancelled and this was a scheduled build, we need to set the metadata status back to "Live"
-if($r -ne $null -and $AgentJobStatus -eq "Canceled" -and $BuildReason -ne "PullRequest"){
+if ($r -ne $null -and $AgentJobStatus -eq "Canceled" -and $BuildReason -ne "PullRequest") {
     if ($r.status -eq $null) {
         Add-Member -InputObject $r -NotePropertyName "status" -NotePropertyValue "Live"
     }
@@ -62,11 +63,14 @@ if($r -ne $null -and $AgentJobStatus -eq "Canceled" -and $BuildReason -ne "PullR
     exit
 }
 
-$BestPracticeResult = ($BestPracticeResult).ToString().ToLower().Replace("true", "PASS").Replace("false", "FAIL")
-$CredScanResult = ($CredScanResult).ToString().ToLower().Replace("true", "PASS").Replace("false", "FAIL")
-$FairfaxDeployment = ($FairfaxDeployment).ToString().ToLower().Replace("true", "PASS").Replace("false", "FAIL")
-$PublicDeployment = ($PublicDeployment).ToString().ToLower().Replace("true", "PASS").Replace("false", "FAIL")
-
+$BestPracticeResult = $BestPracticeResult -ireplace [regex]::Escape("true"), "PASS"
+$BestPracticeResult = $BestPracticeResult -ireplace [regex]::Escape("false"), "FAIL"
+$CredScanResult = $CredScanResult -ireplace [regex]::Escape("true"), "PASS"
+$CredScanResult = $CredScanResult -ireplace [regex]::Escape("false"), "FAIL"
+$FairfaxDeployment = $FairfaxDeployment -ireplace [regex]::Escape("true"), "PASS"
+$FairfaxDeployment = $FairfaxDeployment -ireplace [regex]::Escape("false"), "FAIL"
+$PublicDeployment = $PublicDeployment -ireplace [regex]::Escape("true"), "PASS"
+$PublicDeployment = $PublicDeployment -ireplace [regex]::Escape("false"), "FAIL"
 
 # if the record doesn't exist, this is probably a new sample and needs to be added (or we just cleaned the table)
 if ($r -eq $null) {
@@ -105,6 +109,7 @@ if ($r -eq $null) {
     if ($BuildReason -eq "PullRequest") {
         $results.Add("status", $BuildReason)
         $results.Add($($ResultDeploymentParameter + "BuildNumber"), $ENV:BUILD_BUILDNUMBER)
+        $results.Add("pr", $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER)
     }
 
     Write-Host "New Record: Dump results variable"
@@ -169,6 +174,11 @@ else {
         else {
             $r.status = $BuildReason
         }
+        # set the pr number only if the column isn't present (should be true only for older prs before this column was added)
+        if ($r.pr -eq $null) {
+            Add-Member -InputObject $r -NotePropertyName "pr" -NotePropertyValue $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER            
+        }
+        
         # if it's a PR, set the build number, since it's not set before this outside of a scheduled build
         if ($r.($ResultDeploymentParameter + "BuildNumber") -eq $null) {
             Add-Member -InputObject $r -NotePropertyName ($ResultDeploymentParameter + "BuildNumber") -NotePropertyValue $ENV:BUILD_BUILDNUMBER           
@@ -176,8 +186,16 @@ else {
         else {
             $r.($ResultDeploymentParameter + "BuildNumber") = $ENV:BUILD_BUILDNUMBER
         }
-        
-    } else { # if this isn't a PR, then it's a scheduled build so set the status back to "live" as the test is complete
+        if ($r.pr -eq $null) {
+            Add-Member -InputObject $r -NotePropertyName "pr" -NotePropertyValue $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+        }
+        else {
+            $r.pr = $ENV:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+        }   
+    
+    }
+    else {
+        # if this isn't a PR, then it's a scheduled build so set the status back to "live" as the test is complete
         if ($r.status -eq $null) {
             Add-Member -InputObject $r -NotePropertyName "status" -NotePropertyValue "Live"
         }
@@ -265,7 +283,7 @@ if ($r.FairfaxDeployment -ne $null) {
 switch ($FairfaxDeployment) {
     "PASS" { $FairfaxDeploymentColor = "brightgreen" }
     "FAIL" { $FairfaxDeploymentColor = "red" }
-    "Not Supported" {$FairfaxDeploymentColor = "yellow"}
+    "Not Supported" { $FairfaxDeploymentColor = "yellow" }
     default {
         $FairfaxDeployment = $na
         $FairfaxDeploymentColor = "inactive"    
@@ -279,7 +297,7 @@ if ($r.PublicDeployment -ne $null) {
 switch ($PublicDeployment) {
     "PASS" { $PublicDeploymentColor = "brightgreen" }
     "FAIL" { $PublicDeploymentColor = "red" }
-    "Not Supported" {$PublicDeploymentColor = "yellow"}
+    "Not Supported" { $PublicDeploymentColor = "yellow" }
     default {
         $PublicDeployment = $na
         $PublicDeploymentColor = "inactive"    
@@ -358,11 +376,11 @@ foreach ($badge in $badges) {
     $badgePath = $RowKey.Replace("@", "/")
 
     Set-AzStorageBlobContent -Container $containerName `
-                             -File $badge.filename `
-                             -Blob "$badgePath/$($badge.filename)" `
-                             -Context $ctx `
-                             -Properties @{"ContentType" = "image/svg+xml"; "CacheControl" = "no-cache" } `
-                             -Force -Verbose
+        -File $badge.filename `
+        -Blob "$badgePath/$($badge.filename)" `
+        -Context $ctx `
+        -Properties @{"ContentType" = "image/svg+xml"; "CacheControl" = "no-cache" } `
+        -Force -Verbose
 }
 
 <#Debugging only
